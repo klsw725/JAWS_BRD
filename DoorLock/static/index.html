@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>OpenmvWeb</title>
+    <link href="/static/style.css" rel="stylesheet">
+    <!-- <script src="/static/home.js"></script> -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById("update").addEventListener("click", function(){
+          fetch('/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mqttURL: document.getElementById('mqttURL').value,
+              ssid: document.getElementById('ssid').value,
+              password: document.getElementById('password').value
+            })
+          })
+        });
+      })
+    </script>
+</head>
+<body style="background: steelblue">
+    <div style="margin: 48px auto; padding: 24px; display: flex; flex-direction: column; background: white" id='main'>
+      <h1 style="align-self: center">Settings</h1>
+      <div style="margin-top: 12px">
+        <label style="display: inline-block; margin:3px 0;font-size: 24px;width: 240px;text-align: right " for="mqttURL">MQTT URL:</label>
+        <input type="text" name="mqttURL" id="mqttURL" style='width: 360px; font-size: 20px; margin: 12px 12px' value="">
+      </div>
+
+      <div style="margin-top: 12px">
+        <label style="display: inline-block; margin: 3px 0; font-size: 24px; width: 240px; text-align: right" for="ssid">SSID: </label>
+        <input type="text" name="ssid" id="ssid" style='width: 360px; font-size: 20px; margin: 12px 12px' value="Dmotion"/>
+      </div>
+      
+      <div style="margin-top: 12px">
+        <label style="display: inline-block; margin: 3px 0; font-size: 24px; width: 240px; text-align: right" for="password">Password: </label>
+        <input type="password" name="password" id="password" style='width: 360px; font-size: 20px; margin: 12px 12px' value="11270726"/>
+      </div>
+
+      <div style="align-self: center; margin-top: 24px">
+        <button type='button' id='update' style='font-size: 24px; padding: 12px 24px; border-radius: 6px; background: green; color: white'>Update</button>
+      </div>
+  </div>
+</body>
+</html>
