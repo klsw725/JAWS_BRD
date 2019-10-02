@@ -6,34 +6,32 @@
 #include <EEPROM.h>
 #include <ArduinoJson.h>
 
-#include "index.h"
+#include "index.h" // HTML code
 
 #define EEP_DATA_LEN 512
 
 #ifndef APSSID
-#define APSSID "SHACS"
+#define APSSID "JAWS_DoorLock_AP"
 #define APPSK  "babyshark"
 #endif
 
 int STA_ENABLE = 0;
 bool flag = 0;
-
-/* Set these to your desired credentials. */
-//const char *SSID = APSSID;
-//const char *PASSWORD = APPSK;
+int buzzer = 13;  // D7
+int latch = 10;   // S3
 
 /* Network Settings structure */
 typedef  struct {
   byte   tag;
-  String brokerUrl;
-  String brokerPass;
   String netSSID;
   String netPW;
-} UserSetting;
+  String brokerUrl;
+  String brokerPass;
+} NetworkSetting;
 
-UserSetting userSetting;
-const UserSetting defaultSetting = {
-  0,"ddotmotion.kr", "1234", "SSID", "12345678"
+NetworkSetting userSetting;
+const NetworkSetting defaultSetting = {
+  0, "Default_setting", "12345678", "JAWS_Broker", "1234"
 };
 
 ESP8266WebServer server(80);
@@ -42,64 +40,11 @@ ESP8266WebServer server(80);
    connected to this access point to see it.
 */
 
-/* esp8266 내 EEPROM Data 를 Read */
-void readEEPROM(UserSetting *data) {
-  Serial.println();
-  Serial.println("EEPROM Read request..");
-
-  byte *buf = (byte *)(data);
-  EEPROM.begin(sizeof(UserSetting));
-  for (int i = 0; i < (int)sizeof(UserSetting); i++ ) {
-    buf[i] = EEPROM.read(i);
-    delay(1);
-  }
-  EEPROM.end();
-
-  Serial.println("Read Data : " + data->netSSID);
-}
-
-/* 구조체 포인터를 받아서 esp8266 EEPROM 에 기록 */
-void writeEEPROM(UserSetting *data) {
-  Serial.println();
-  Serial.println("EEPROM write request : " + data->netSSID);
-
-  byte *buf = (byte *)data;
-  EEPROM.begin(sizeof(UserSetting));
-  for (int i = 0; i < (int)sizeof(UserSetting); i++ ) {
-    EEPROM.write(i,buf[i]);
-    delay(10);
-  }
-  EEPROM.commit();
-  EEPROM.end();
-
-  Serial.println("Write complete.");
-}
-
-/* EEPROM 내 사용자 네트워크 설정 존재 여부 검사 */
-void chkUserData(void) {
-   UserSetting data;
-   readEEPROM(&data);
-   
-   if(data.tag == 0xFF) {
-    writeEEPROM((UserSetting *)&defaultSetting);
-    Serial.println("Set Default.");
-   }
-}
-
-/* esp8266 내 EEPROM Data 삭제 */
-void clearEEPROM(){
-  for (int i = 0; i < EEP_DATA_LEN; ++i) {
-    EEPROM.write(i, 0); // clear ROM
-  }
-  EEPROM.commit();
-
-  Serial.println("EEPROM Reset.\n");
-  ESP.restart();
-}
+/* EEPROM Function Site */
 
 /* WebBrowser 에서 제출한 form 을 처리하는 함수 */
 void formReceive() {
-  UserSetting data;
+  NetworkSetting data;
   StaticJsonDocument<200> doc;
   data.netSSID = server.arg("ssid");
   data.netPW = server.arg("pw");
@@ -126,16 +71,9 @@ void page_handle(){
   server.send(200, "submit.html", s);
 }
 
-/* EEPROM read by JSON */
-//void readROM() {
-//  StaticJsonDocument<200> doc;
-//  deserializeJson(doc, readEEPROM().c_str());
-//
-//  server.sendHeader("Location", "/");
-//  server.send(302, "text/plain", "Updated-- Press Back Button");
-//}
-
 void setup() {
+  pinMode(buzzer, OUTPUT);
+  pinMode(latch, OUTPUT);
   Serial.begin(115200);
   
   int cnt = 1;
@@ -143,9 +81,6 @@ void setup() {
   readEEPROM(&userSetting);
   WiFi.mode(WIFI_STA);
   WiFi.begin(userSetting.netSSID.c_str(), userSetting.netPW.c_str());
- // Serial.print("connecting to ");
- // Serial.print(userSetting.netSSID);
- // Serial.println(userSetting.netPW);
 
  /* Wait for connection for 10 seconds */
   while (WiFi.status() != WL_CONNECTED) {
@@ -155,7 +90,7 @@ void setup() {
     /* when fail to connect prev.net in 10", enable APmode. */
     if (cnt == 10 ) {
       Serial.println("\nConnection Failed.");
-      WiFi.softAP(APSSID);
+      WiFi.softAP(APSSID);  // Start AP mode with name #def_APSSID
       Serial.println("AP Mode Activated.");
 
       IPAddress myIP = WiFi.softAPIP();
@@ -165,6 +100,9 @@ void setup() {
       server.on("/", HTTP_POST, formReceive);
       server.begin();
       Serial.println("Please connect to this address.");
+      tone(buzzer, 261, 100);
+      delay(200);
+      tone(buzzer, 261, 300);
       flag = 1;
       break;
     }
@@ -177,6 +115,7 @@ void setup() {
   
   if (flag == 0) {
     // when connected to WIFI
+    tone(buzzer, 261, 500);
     Serial.println();
     Serial.println("Connected to " + userSetting.netSSID);
     Serial.println("Router IP : " + WiFi.localIP());
@@ -187,8 +126,6 @@ void setup() {
     
     /* Start TCP (HTTP) server */
     server.on("/setting", HTTP_GET, page_handle);
-//    server.on("/", HTTP_GET, handleRoot);
-//    server.on("/", HTTP_POST, formReceive);
     server.begin();
     Serial.println("HTTP server started");
   }
