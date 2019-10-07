@@ -2,24 +2,26 @@
 # This example demonstrates the sensor sleep mode. The sleep mode saves around
 # 40mA when enabled and it's automatically cleared when calling sensor reset().
 
-import sensor, image, time, machine, pyb
+import sensor, image, time, pyb
 from pyb import LED
 
-def whoAreU(line) :
-    pass
+led = LED(1)  # red led for running check
 
-led = LED(1) # red led
+def test():
+	sensor.sleep(False)
+	led.on()
+	sensor.reset()                      # Reset and initialize the sensor.
+	sensor.set_pixformat(sensor.RGB565) # Set pixel format to RGB565 (or GRAYSCALE)
+	sensor.set_framesize(sensor.QVGA)   # Set frame size to QVGA (320x240)
+	sensor.skip_frames(time = 3000)     # Capture frames for 3000ms.
+	sensor.sleep(True)                  # Enable sensor sleep mode (saves about 40mA)
+	led.off()
 
 ######## Configure external wakeup pin for sleep ######
-extint = pyb.ExtInt("P0", pyb.ExtInt.IRQ_RISING, pyb.Pin.PULL_DOWN, whoAreU)
+extint = pyb.ExtInt("P7", pyb.ExtInt.IRQ_RISING, pyb.Pin.PULL_DOWN,  test)
 #######################################################
 
+test()
 while True:
-    sensor.reset()
-	sensor.set_pixformat(sensor.RGB565)
-	sensor.set_framesize(sensor.QVGA)
-	led.on()
-	sensor.skip_frames(time = 3000) # You may write down previous settings related to auto-gain and white balance and re-apply them to skip this on wakeup.
-	img = sensor.snapshot()
-	led.off()
-	pyb.stop()
+	time.sleep(100)
+	pass
