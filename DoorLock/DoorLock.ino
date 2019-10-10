@@ -20,7 +20,7 @@
 #endif
 
 const int chipSelectPin  = 15;  // NodeMCU D8-CS
-int detect = 4;                 // NodeMCU D2
+int LED = 4;                    // NodeMCU D2
 int door = 5;                   // NodeMCU D1
 unsigned char T_high_byte;
 unsigned char T_low_byte;
@@ -35,15 +35,22 @@ typedef  struct {
   String netSSID;
   String netPW;
   String brokerUrl;
-  String brokerPass;
+  int brokerPort;
 } NetworkSetting;
 
-NetworkSetting userSetting;
+NetworkSetting userSetting;     // Hold User Setting
 const NetworkSetting defaultSetting = {
-  0, "Default_setting", "12345678", "JAWS_Broker", "1234"
+  0, "Default_setting", "12345678", "JAWS_Broker", 8880
 };
 
 ESP8266WebServer server(80);
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+const char* topic_sub = "jaws";   // MQTT Topic sub
+long lastMsg = 0;
+char msg[50];
+int value = 0;
 
 /* Go to http://192.168.4.1 in a web browser
    connected to this access point to see it.
@@ -57,12 +64,18 @@ void formReceive() {
   StaticJsonDocument<200> doc;
   data.netSSID = server.arg("ssid");
   data.netPW = server.arg("pw");
+  data.brokerUrl = server.arg("broker");
+  data.brokerPort = server.arg("port").toInt();
 
   writeEEPROM(&data);
   readEEPROM(&data);
   Serial.print(data.netSSID);
   Serial.print(",");
-  Serial.println(data.netPW);
+  Serial.print(data.netPW);
+  Serial.print(",");
+  Serial.print(data.brokerUrl);
+  Serial.print(",");
+  Serial.println(data.brokerPort);
 
   server.send(200, "Configuration.html", Config_Page);
   ESP.restart();
@@ -80,6 +93,64 @@ void page_handle(){
   server.send(200, "submit.html", s);
 }
 
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  String str1;
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+    str1.concat(String((char)payload[i]));
+  }
+  Serial.println();
+  
+  if(str1.equals("open")){
+    Serial.println("success");
+    digitalWrite(door, HIGH);
+    delay(500);
+    digitalWrite(door, LOW);
+  }
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...\n");
+    // Create a random client ID
+    String clientId = "JAWS_Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+//      // Once connected, publish an announcement...
+//      client.publish("outTopic", "hello world");
+//      // ... and resubscribe
+//      client.subscribe("inTopic");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
+int SEND_COMMAND(unsigned char cCMD)
+{
+    digitalWrite(chipSelectPin , LOW);  // CS Low Level
+    delayMicroseconds(10);              // delay(10us)
+    SPI.transfer(cCMD);                // Send 1st Byte
+    delay(10);                          // delay(10ms)          
+    T_low_byte = SPI.transfer(0x22);   // Send 2nd Byte
+    delay(10);                          //delay(10ms)  
+    T_high_byte = SPI.transfer(0x22);  // Send 3rd Byte
+    digitalWrite(chipSelectPin , HIGH); // CS High Level 
+    
+    return (T_high_byte<<8 | T_low_byte);  // 상위, 하위 바이트 연산 
+}
+
+/********** Main Code **********/
 void setup() {
   Serial.begin(115200);
   pinMode(MISO, INPUT);
@@ -90,11 +161,11 @@ void setup() {
   digitalWrite(LED, false);
   pinMode(door, OUTPUT);
   
-//  int cnt = 1;
-//  chkUserData();
-//  readEEPROM(&userSetting);
-//  WiFi.mode(WIFI_STA);
-//  WiFi.begin(userSetting.netSSID.c_str(), userSetting.netPW.c_str());
+  int cnt = 1;
+  chkUserData();
+  readEEPROM(&userSetting);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(userSetting.netSSID.c_str(), userSetting.netPW.c_str());
 
  /* Wait for connection for 10 seconds */
   while (WiFi.status() != WL_CONNECTED) {
@@ -114,9 +185,6 @@ void setup() {
       server.on("/", HTTP_POST, formReceive);
       server.begin();
       Serial.println("Please connect to this address.");
-      tone(buzzer, 261, 100);
-      delay(200);
-      tone(buzzer, 261, 300);
       flag = 1;
       break;
     }
@@ -126,26 +194,32 @@ void setup() {
   delay(1000);
 
   Serial.println(flag ? "--AP mode--" : "--STA mode--");
-  
-  if (flag == 0) {
-    // when connected to WIFI
-    tone(buzzer, 261, 500);
-    Serial.println();
-    Serial.println("Connected to " + userSetting.netSSID);
-    Serial.println("Router IP : " + WiFi.localIP());
 
-    if (MDNS.begin("shacs")) {
-      Serial.println("MDNS responder started");
-    }
-    
-    /* Start TCP (HTTP) server */
-    server.on("/setting", HTTP_GET, page_handle);
-    server.begin();
-    Serial.println("HTTP server started");
+  if (flag == 0) {
+    client.setServer(userSetting.brokerUrl.c_str(), userSetting.brokerPort);
+    client.setCallback(callback);
+    reconnect();
+    client.subscribe(topic_sub);
+  
+    /* Setting CS & SPI */
+    digitalWrite(chipSelectPin , HIGH);    // CS High Level
+    SPI.setDataMode(SPI_MODE3);            // Setting SPI Mode 
+    SPI.setClockDivider(SPI_CLOCK_DIV16);  // 16MHz/16 = 1MHz
+    SPI.setBitOrder(MSBFIRST);             // MSB First
+    SPI.begin();                           // Initialize SPI
+    delay(500);                             // wating for DTS setup time
   }
 }
 
 void loop() {
   server.handleClient();
   if(flag == 0) MDNS.update();
+
+  iTARGET = float(SEND_COMMAND(TARGET_CMD))/100;      // 대상 온도 Read 
+    delay(50);    // 50ms : 이 라인을 지우지 마세요 
+
+  if(iTARGET >= 30)
+    digitalWrite(LED, HIGH);
+  else
+    digitalWrite(LED, LOW);
 }

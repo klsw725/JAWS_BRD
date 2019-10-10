@@ -69,6 +69,10 @@ const char Config_Page[] PROGMEM = R"=====(
       <input accept-charset="utf-8" name="ssid" placeholder="네트워크 ID 입력" required type="text">
       <p>Password :</p>
       <input name="pw" placeholder="비밀번호 입력" required type="password">
+      <p>MQTT :</p>
+      <input name="broker" placeholder="Broker URL" required type="text">
+      <p>Port :</p>
+      <input name="port" placeholder="Broker Port" required type="text">
     </div>
     <input type="submit" value="Submit">
   </form>

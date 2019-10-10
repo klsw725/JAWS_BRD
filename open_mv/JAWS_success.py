@@ -54,10 +54,9 @@ while True:
             client.send(msg)
             client.send(ubinascii.b2a_base64(frame))
             # client.send("GET / HTTP/1.0\r\n\r\n")
-
-        # Close socket
-        except Exception as e:
-            print(e)
-            client.close()
+            # Close socket
+            except Exception as e :
+                print(e)
+                client.close()
             led.off()
             pyb.stop()
