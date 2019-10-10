@@ -2,6 +2,8 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
+#include <PubSubClient.h>
+#include <SPI.h>
 
 #include <EEPROM.h>
 #include <ArduinoJson.h>
@@ -9,16 +11,23 @@
 #include "index.h" // HTML code
 
 #define EEP_DATA_LEN 512
+#define TARGET_CMD  0xA0      // 대상 온도 커맨드
+#define SENSOR_CMD  0xA1      // 센서 온도 커맨드
 
 #ifndef APSSID
 #define APSSID "JAWS_DoorLock_AP"
 #define APPSK  "babyshark"
 #endif
 
+const int chipSelectPin  = 15;  // NodeMCU D8-CS
+int detect = 4;                 // NodeMCU D2
+int door = 5;                   // NodeMCU D1
+unsigned char T_high_byte;
+unsigned char T_low_byte;
+int  iTARGET, iSENSOR;  // 부호 2byte 온도 저장 변수
+
 int STA_ENABLE = 0;
 bool flag = 0;
-int buzzer = 13;  // D7
-int latch = 10;   // S3
 
 /* Network Settings structure */
 typedef  struct {
@@ -72,15 +81,20 @@ void page_handle(){
 }
 
 void setup() {
-  pinMode(buzzer, OUTPUT);
-  pinMode(latch, OUTPUT);
   Serial.begin(115200);
+  pinMode(MISO, INPUT);
+  pinMode(chipSelectPin , OUTPUT);
+  pinMode(MOSI, OUTPUT);
+  pinMode(SCK, OUTPUT);
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, false);
+  pinMode(door, OUTPUT);
   
-  int cnt = 1;
-  chkUserData();
-  readEEPROM(&userSetting);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(userSetting.netSSID.c_str(), userSetting.netPW.c_str());
+//  int cnt = 1;
+//  chkUserData();
+//  readEEPROM(&userSetting);
+//  WiFi.mode(WIFI_STA);
+//  WiFi.begin(userSetting.netSSID.c_str(), userSetting.netPW.c_str());
 
  /* Wait for connection for 10 seconds */
   while (WiFi.status() != WL_CONNECTED) {
