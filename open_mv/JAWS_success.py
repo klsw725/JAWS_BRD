@@ -39,24 +39,24 @@ while True:
 
     # Create a new socket and connect to addr
     client = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
-    try:
-        conn = client.connect(addr)
-        # Set timeout to 1s
-        client.settimeout(1.0)
-        timer = time.ticks()
-        while True:
-            # Send HTTP request and recv response
-            img = sensor.snapshot()         # Take a picture and return the image.
-            frame = img.compress(30     )
-            encodeframe = ubinascii.b2a_base64(frame)
-            #print(frame.size())
-            msg = bytes("image{:07}".format(len(encodeframe)), "ascii")
-            client.send(msg)
-            client.send(ubinascii.b2a_base64(frame))
-            # client.send("GET / HTTP/1.0\r\n\r\n")
-            # Close socket
-            except Exception as e :
-                print(e)
-                client.close()
-            led.off()
-            pyb.stop()
+    #try:
+    conn = client.connect(addr)
+    # Set timeout to 1s
+    client.settimeout(1.0)
+    timer = time.ticks()
+    while True:
+        # Send HTTP request and recv response
+        img = sensor.snapshot()         # Take a picture and return the image.
+        frame = img.compress(30     )
+        encodeframe = ubinascii.b2a_base64(frame)
+        #print(frame.size())
+        msg = bytes("image{:07}".format(len(encodeframe)), "ascii")
+        client.send(msg)
+        client.send(ubinascii.b2a_base64(frame))
+        # client.send("GET / HTTP/1.0\r\n\r\n")
+        # Close socket
+        #except Exception as e :
+        #print(e)
+        client.close()
+        led.off()
+        pyb.stop()
