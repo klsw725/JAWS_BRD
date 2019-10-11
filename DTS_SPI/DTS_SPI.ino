@@ -12,10 +12,10 @@ unsigned char T_high_byte;
 unsigned char T_low_byte;
 int  iTARGET, iSENSOR;	// 부호 2byte 온도 저장 변수
 
-const char* ssid = "Dmotion";
-const char* password = "11270726";
-const char* mqtt_server = "ddotmotion.kr";
-const int mqtt_port = 9883;
+const char* ssid = "iPhone";
+const char* password = "dltmddnWkd";
+const char* mqtt_server = "172.20.10.11";
+const int mqtt_port = 1883;
 const char* topic_sub = "jaws";
 
 WiFiClient espClient;

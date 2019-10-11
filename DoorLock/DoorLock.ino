@@ -26,6 +26,10 @@ unsigned char T_high_byte;
 unsigned char T_low_byte;
 int  iTARGET, iSENSOR;  // 부호 2byte 온도 저장 변수
 
+const char* mqtt_server = "172.20.10.11";
+const int mqtt_port = 1883;
+
+int connection_try = 10;        // connection try
 int STA_ENABLE = 0;
 bool flag = 0;
 
@@ -40,14 +44,14 @@ typedef  struct {
 
 NetworkSetting userSetting;     // Hold User Setting
 const NetworkSetting defaultSetting = {
-  0, "Default_setting", "12345678", "JAWS_Broker", 1883
+  0, "default", "pass", "broker", 1883
 };
 
 ESP8266WebServer server(80);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-const char* topic_sub = "jaws";   // MQTT Topic sub
+const char* topic_sub = "JAWS";   // MQTT Topic sub
 long lastMsg = 0;
 char msg[50];
 int value = 0;
@@ -73,7 +77,8 @@ void formReceive() {
 
   server.send(200, "Configuration.html", Config_Page);
   flag = 0; // connection retry
-//  ESP.restart();
+  connection_try = 30;
+  ESP.restart();
 }
 
 /* index.h 내 HTML 형식으로 작성된 Main Page 를 Load */
@@ -108,9 +113,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 /* Wait for connection for 10 seconds */
-void connect_n() {
-  
-}
+//void connect_n() {
+//  
+//}
 
 void connect_b() {
   // Loop until we're reconnected
@@ -150,6 +155,18 @@ int SEND_COMMAND(unsigned char cCMD)
     return (T_high_byte<<8 | T_low_byte);  // 상위, 하위 바이트 연산 
 }
 
+void sensing() {
+  while(true) {
+    iTARGET = float(SEND_COMMAND(TARGET_CMD))/100;      // 대상 온도 Read 
+    delay(50);    // 50ms : 이 라인을 지우지 마세요 
+
+    if(iTARGET >= 30)
+      digitalWrite(LED, HIGH);
+    else
+      digitalWrite(LED, LOW);
+  }
+}
+
 /********** Main Code **********/
 void setup() {
   Serial.begin(115200);
@@ -172,7 +189,7 @@ void setup() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(userSetting.netSSID.c_str(), userSetting.netPW.c_str());
 
-    for (int cnt = 1; cnt <= 10 ;cnt++) {
+    for (int cnt = 1; cnt <= connection_try ;cnt++) {
       delay(1000);
       Serial.print(cnt);
 
@@ -180,7 +197,7 @@ void setup() {
         break;
       
       /* when fail to connect prev.net in 10", enable APmode. */
-      if (cnt == 10 ) {
+      if (cnt == connection_try ) {
         Serial.println("\nConnection Failed.");
         WiFi.softAP(APSSID);  // Start AP mode with name #def_APSSID
         Serial.println("AP Mode Activated.");
@@ -202,7 +219,8 @@ void setup() {
     Serial.println(flag ? "--AP mode--" : "--STA mode--");  // connection check
     
     if (flag == 0) {
-      client.setServer(userSetting.brokerUrl.c_str(), userSetting.brokerPort);
+//      client.setServer(userSetting.brokerUrl.c_str(), userSetting.brokerPort);
+      client.setServer(mqtt_server, mqtt_port);
       client.setCallback(callback);
       connect_b();
       client.subscribe(topic_sub);
@@ -214,7 +232,7 @@ void setup() {
       SPI.setBitOrder(MSBFIRST);             // MSB First
       SPI.begin();                           // Initialize SPI
       delay(500);                             // wating for DTS setup time
-      return;
+      sensing();
     }
 //    else {
 //      while(flag) {
@@ -228,7 +246,7 @@ void setup() {
 void loop() {
   server.handleClient();
   if(flag == 0) MDNS.update();
-
+/*
   iTARGET = float(SEND_COMMAND(TARGET_CMD))/100;      // 대상 온도 Read 
     delay(50);    // 50ms : 이 라인을 지우지 마세요 
 
@@ -236,4 +254,5 @@ void loop() {
     digitalWrite(LED, HIGH);
   else
     digitalWrite(LED, LOW);
+*/
 }
