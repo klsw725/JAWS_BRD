@@ -40,7 +40,7 @@ typedef  struct {
 
 NetworkSetting userSetting;     // Hold User Setting
 const NetworkSetting defaultSetting = {
-  0, "Default_setting", "12345678", "JAWS_Broker", 8880
+  0, "Default_setting", "12345678", "JAWS_Broker", 1883
 };
 
 ESP8266WebServer server(80);
@@ -66,19 +66,14 @@ void formReceive() {
   data.netPW = server.arg("pw");
   data.brokerUrl = server.arg("broker");
   data.brokerPort = server.arg("port").toInt();
-
+  
   writeEEPROM(&data);
   readEEPROM(&data);
-  Serial.print(data.netSSID);
-  Serial.print(",");
-  Serial.print(data.netPW);
-  Serial.print(",");
-  Serial.print(data.brokerUrl);
-  Serial.print(",");
-  Serial.println(data.brokerPort);
+  Serial.println("Form Received");
 
   server.send(200, "Configuration.html", Config_Page);
-  ESP.restart();
+  flag = 0; // connection retry
+//  ESP.restart();
 }
 
 /* index.h 내 HTML 형식으로 작성된 Main Page 를 Load */
@@ -112,7 +107,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
-void reconnect() {
+/* Wait for connection for 10 seconds */
+void connect_n() {
+  
+}
+
+void connect_b() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...\n");
@@ -161,54 +161,68 @@ void setup() {
   digitalWrite(LED, false);
   pinMode(door, OUTPUT);
   
-  int cnt = 1;
-  chkUserData();
   readEEPROM(&userSetting);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(userSetting.netSSID.c_str(), userSetting.netPW.c_str());
+  // 공장출하시 (code 업로드시) 모든 bit '1' 설정
+    if(userSetting.tag == 0xFF) {
+    writeEEPROM((NetworkSetting *)&defaultSetting);
+    Serial.println("Set Default.");
+  }
 
- /* Wait for connection for 10 seconds */
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.print(cnt);
+  //  while(true) {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(userSetting.netSSID.c_str(), userSetting.netPW.c_str());
 
-    /* when fail to connect prev.net in 10", enable APmode. */
-    if (cnt == 10 ) {
-      Serial.println("\nConnection Failed.");
-      WiFi.softAP(APSSID);  // Start AP mode with name #def_APSSID
-      Serial.println("AP Mode Activated.");
+    for (int cnt = 1; cnt <= 10 ;cnt++) {
+      delay(1000);
+      Serial.print(cnt);
 
-      IPAddress myIP = WiFi.softAPIP();
-      Serial.print("AP IP : ");
-      Serial.println(myIP);
-      server.on("/", HTTP_GET, handleRoot);
-      server.on("/", HTTP_POST, formReceive);
-      server.begin();
-      Serial.println("Please connect to this address.");
-      flag = 1;
-      break;
+      if (WiFi.status() == WL_CONNECTED)
+        break;
+      
+      /* when fail to connect prev.net in 10", enable APmode. */
+      if (cnt == 10 ) {
+        Serial.println("\nConnection Failed.");
+        WiFi.softAP(APSSID);  // Start AP mode with name #def_APSSID
+        Serial.println("AP Mode Activated.");
+        
+        IPAddress myIP = WiFi.softAPIP();
+        Serial.print("AP IP : ");
+        Serial.println(myIP);
+        server.on("/", HTTP_GET, handleRoot);
+        server.on("/", HTTP_POST, formReceive);
+        server.begin();
+        Serial.println("Please connect to this address.");
+        flag = 1;   // connection error
+        break;
+      }
     }
-    cnt += 1;
-  }
-
-  delay(1000);
-
-  Serial.println(flag ? "--AP mode--" : "--STA mode--");
-
-  if (flag == 0) {
-    client.setServer(userSetting.brokerUrl.c_str(), userSetting.brokerPort);
-    client.setCallback(callback);
-    reconnect();
-    client.subscribe(topic_sub);
   
-    /* Setting CS & SPI */
-    digitalWrite(chipSelectPin , HIGH);    // CS High Level
-    SPI.setDataMode(SPI_MODE3);            // Setting SPI Mode 
-    SPI.setClockDivider(SPI_CLOCK_DIV16);  // 16MHz/16 = 1MHz
-    SPI.setBitOrder(MSBFIRST);             // MSB First
-    SPI.begin();                           // Initialize SPI
-    delay(500);                             // wating for DTS setup time
-  }
+    delay(1000);
+  
+    Serial.println(flag ? "--AP mode--" : "--STA mode--");  // connection check
+    
+    if (flag == 0) {
+      client.setServer(userSetting.brokerUrl.c_str(), userSetting.brokerPort);
+      client.setCallback(callback);
+      connect_b();
+      client.subscribe(topic_sub);
+    
+      /* Setting CS & SPI */
+      digitalWrite(chipSelectPin , HIGH);    // CS High Level
+      SPI.setDataMode(SPI_MODE3);            // Setting SPI Mode 
+      SPI.setClockDivider(SPI_CLOCK_DIV16);  // 16MHz/16 = 1MHz
+      SPI.setBitOrder(MSBFIRST);             // MSB First
+      SPI.begin();                           // Initialize SPI
+      delay(500);                             // wating for DTS setup time
+      return;
+    }
+//    else {
+//      while(flag) {
+//        Serial.print(".");
+//        delay(1000);
+//      }
+//    }
+//  }
 }
 
 void loop() {

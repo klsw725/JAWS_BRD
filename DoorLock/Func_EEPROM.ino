@@ -10,7 +10,7 @@ void readEEPROM(NetworkSetting *data) {
   }
   EEPROM.end();
 
-  Serial.println("Read Data : " + data->netSSID);
+  Serial.println("Read Data : " + data->netSSID + "," + data->netPW + "," + data->brokerUrl + "," + data->brokerPort);
 }
 
 /* 구조체 포인터를 받아서 esp8266 EEPROM 에 기록 */
