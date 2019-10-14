@@ -19,7 +19,7 @@ while True:
     sensor.set_pixformat(sensor.RGB565)
     sensor.set_framesize(sensor.QVGA)
     led.on()
-    sensor.skip_frames(time = 3000) # You may write down previous settings related to auto-gain and white balance and re-apply them to skip this on wakeup.
+    sensor.skip_frames(time = 10000) # You may write down previous settings related to auto-gain and white balance and re-apply them to skip this on wakeup.
     img = sensor.snapshot()
     led.off()
     pyb.stop()

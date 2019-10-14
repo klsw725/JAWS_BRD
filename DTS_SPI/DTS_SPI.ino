@@ -14,7 +14,7 @@ int  iTARGET, iSENSOR;	// 부호 2byte 온도 저장 변수
 
 const char* ssid = "iPhone";
 const char* password = "dltmddnWkd";
-const char* mqtt_server = "172.20.10.11";
+const char* mqtt_server = "192.168.43.192";
 const int mqtt_port = 1883;
 const char* topic_sub = "jaws";
 
@@ -59,9 +59,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
   
   if(str1.equals("open")){
     Serial.println("success");
-    digitalWrite(door, HIGH);
-    delay(500);
     digitalWrite(door, LOW);
+    delay(500);
+    digitalWrite(door, HIGH);
   }
   // Switch on the LED if an 1 was received as first character
   if ((char)payload[0] == '1') {
@@ -122,6 +122,7 @@ void setup() {
   pinMode(LED, OUTPUT);
   digitalWrite(LED, false);
   pinMode(door, OUTPUT);
+  digitalWrite(door, HIGH);
   
   pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
   
@@ -153,10 +154,12 @@ void loop() {
 //    iSENSOR = float(SEND_COMMAND(SENSOR_CMD))/100;			// 센서 온도 Read
 //    delay(50);    // 500ms : 이 라인을 지우지 마세요.
 
-    if(iTARGET >= 30)
+    if(iTARGET >= 30){
       digitalWrite(LED, HIGH);
-    else
+    }
+    else{
       digitalWrite(LED, LOW);
+    }
 
 //  }
 }

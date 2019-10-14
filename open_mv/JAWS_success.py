@@ -11,19 +11,19 @@ def whoAreU(line):
 led = LED(1)  # red led for running check
 
 ######## Configure external wakeup pin for sleep ######
-extint = pyb.ExtInt("P0", pyb.ExtInt.IRQ_RISING, pyb.Pin.PULL_DOWN, whoAreU)
+extint = pyb.ExtInt("P7", pyb.ExtInt.IRQ_RISING, pyb.Pin.PULL_DOWN, whoAreU)
 #######################################################
 
 while True:
     sensor.reset()
     sensor.set_pixformat(sensor.RGB565)
-    sensor.set_framesize(sensor.VGA)
+    sensor.set_framesize(sensor.QVGA)
     led.on()
-    sensor.skip_frames(time=7000)  # You may write down previous settings related to auto-gain and white balance and re-apply them to skip this on wakeup.
+    sensor.skip_frames(time=10000)  # You may write down previous settings related to auto-gain and white balance and re-apply them to skip this on wakeup.
 
     # AP info
-    SSID = 'EZ2MAX-5s'  # Network SSID
-    KEY = 'EZ2Connect'  # Network key
+    SSID = 'iPhone'  # Network SSID
+    KEY = 'dltmddnWkd'  # Network key
 
     # Init wlan module and connect to network
     print("Trying to connect... (may take a while)...")
@@ -35,7 +35,7 @@ while True:
     print(wlan.ifconfig())
 
     # Get addr info via DNS
-    addr = usocket.getaddrinfo("www.ddotmotion.kr", 8880)[0][4]
+    addr = usocket.getaddrinfo("192.168.43.192", 9009)[0][4]
 
     # Create a new socket and connect to addr
     client = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
@@ -47,7 +47,7 @@ while True:
     while True:
         # Send HTTP request and recv response
         img = sensor.snapshot()         # Take a picture and return the image.
-        frame = img.compress(30     )
+        frame = img.compress(50)
         encodeframe = ubinascii.b2a_base64(frame)
         #print(frame.size())
         msg = bytes("image{:07}".format(len(encodeframe)), "ascii")

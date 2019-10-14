@@ -51,7 +51,7 @@ ESP8266WebServer server(80);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-const char* topic_sub = "JAWS";   // MQTT Topic sub
+const char* topic_sub = "jaws";   // MQTT Topic sub
 long lastMsg = 0;
 char msg[50];
 int value = 0;
@@ -106,9 +106,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
   
   if(str1.equals("open")){
     Serial.println("success");
-    digitalWrite(door, HIGH);
-    delay(500);
     digitalWrite(door, LOW);
+    delay(500);
+    digitalWrite(door, HIGH);
   }
 }
 
@@ -177,6 +177,7 @@ void setup() {
   pinMode(LED, OUTPUT);
   digitalWrite(LED, false);
   pinMode(door, OUTPUT);
+  digitalWrite(door, true);
   
   readEEPROM(&userSetting);
   // 공장출하시 (code 업로드시) 모든 bit '1' 설정
